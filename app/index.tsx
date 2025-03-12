@@ -73,7 +73,7 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('token', data.token);
       Alert.alert('Sucesso', 'Login efetuado com sucesso!');
       setLoading(false);
-      // router.push('/dashboard'); // descomentar quando o dashboard for feito
+      router.push('/dashboard');
     } catch (error) {
       console.error('Erro na requisição de login:', error);
       Alert.alert('Erro', 'Erro ao conectar com a API');
