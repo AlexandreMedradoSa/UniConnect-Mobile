@@ -3,12 +3,12 @@
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
-    "jsx": "react-native"
+      "@/*": ["./*"],
+      "@components/*": ["components/*"],
+      "@types/*": ["types/*"]
+    }
   },
   "include": [
     "**/*.ts",

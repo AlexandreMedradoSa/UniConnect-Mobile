@@ -10,11 +10,15 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ThemedText } from '@/components/ThemedText';
+import { ThemedText } from '@components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { GroupsSection } from '@components/dashboard/GroupsSection';
+import { ConnectionsSection } from '@components/dashboard/ConnectionsSection';
+import { EventsSection } from '@components/dashboard/EventsSection';
+import { UserProfile, Group, Connection, Event } from '@/types/dashboard.types';
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
 if (!API_URL) {
@@ -23,59 +27,21 @@ if (!API_URL) {
   );
 }
 
-interface UserProfile {
-  id: string;
-  name: string;
-}
-
-
-
-interface Group {
-  id: number;
-  nome: string;
-  descricao: string;
-  curso: string;
-  semestre: number;
-  interesses: string[];
-  criador_id: string;
-  criado_em: string;
-  status: string;
-  notas: string | null;
-}
-
-interface Connection {
-  conexaoId: string;
-  id: string;
-  name: string;
-  curso: string;
-  semestre: number;
-  interesses: string[];
-}
-
-interface Event {
-  id: number;
-  nome: string;
-  descricao: string;
-  data: string;
-  curso: string;
-  limite_participantes: number;
-  localizacao: string;
-  observacoes_adicionais: string;
-  criador_id: string;
-  evento_participantes: { usuario_id: string }[];
-  total_participantes: number;
-}
-
 type NavItem = {
-  id: 'groups' | 'connections' | 'events';
+  id: 'groups' | 'connections' | 'events' | 'profile';
   label: string;
-  icon: 'people-outline' | 'person-add-outline' | 'calendar-outline';
+  icon:
+    | 'people-outline'
+    | 'person-add-outline'
+    | 'calendar-outline'
+    | 'person-outline';
 };
 
 const navItems: NavItem[] = [
   { id: 'groups', label: 'Grupos', icon: 'people-outline' },
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
+  { id: 'profile', label: 'Perfil', icon: 'person-outline' },
 ];
 
 export default function DashboardScreen() {
@@ -86,7 +52,7 @@ export default function DashboardScreen() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [activeSection, setActiveSection] = useState<
-    'groups' | 'connections' | 'events'
+    'groups' | 'connections' | 'events' | 'profile'
   >('groups');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -228,7 +194,13 @@ export default function DashboardScreen() {
         <TouchableOpacity
           key={item.id}
           style={[styles.navItem, isActive && styles.activeNavItem]}
-          onPress={() => setActiveSection(item.id)}
+          onPress={() => {
+            if (item.id === 'profile') {
+              router.push('/profile');
+            } else {
+              setActiveSection(item.id);
+            }
+          }}
         >
           <Ionicons
             name={item.icon}
@@ -255,62 +227,11 @@ export default function DashboardScreen() {
   const renderContent = () => {
     switch (activeSection) {
       case 'groups':
-        return (
-          <>
-            <ThemedText type="title" style={styles.sectionTitle}>
-              Grupos de Estudo
-            </ThemedText>
-            {groups.map((group) => (
-              <View key={group.id} style={styles.itemCard}>
-                <ThemedText type="defaultSemiBold" style={styles.itemTitle}>
-                  {group.nome}
-                </ThemedText>
-                <ThemedText style={styles.itemDescription}>
-                  {group.descricao}
-                </ThemedText>
-              </View>
-            ))}
-          </>
-        );
+        return <GroupsSection groups={groups} />;
       case 'connections':
-        return (
-          <>
-            <ThemedText type="title" style={styles.sectionTitle}>
-              Conexões
-            </ThemedText>
-            {connections.map((conn) => (
-              <View key={conn.conexaoId} style={styles.itemCard}>
-                <ThemedText type="defaultSemiBold" style={styles.itemTitle}>
-                  {conn.name}
-                </ThemedText>
-                <ThemedText style={styles.itemDescription}>
-                  Curso: {conn.curso}
-                </ThemedText>
-              </View>
-            ))}
-          </>
-        );
+        return <ConnectionsSection connections={connections} />;
       case 'events':
-        return (
-          <>
-            <ThemedText type="title" style={styles.sectionTitle}>
-              Eventos Inscritos
-            </ThemedText>
-            {events.map((event) => (
-              <View key={event.id} style={styles.itemCard}>
-                <ThemedText type="defaultSemiBold" style={styles.itemTitle}>
-                  {event.nome}
-                </ThemedText>
-                <ThemedText style={styles.itemDescription}>
-                  {event.descricao}
-                </ThemedText>
-                <ThemedText style={styles.itemDescription}>
-                  Data: {new Date(event.data).toLocaleDateString()}
-                </ThemedText>
-              </View>
-            ))}
-          </>
-        );
+        return <EventsSection events={events} />;
       default:
         return null;
     }
@@ -393,23 +314,4 @@ const styles = StyleSheet.create({
   mainHeader: { marginBottom: 20 },
   headerText: { fontSize: 28, color: '#fff', textAlign: 'center' },
   mainScroll: { paddingBottom: 20 },
-  sectionTitle: {
-    fontSize: 24,
-    color: '#fff',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  itemTitle: { fontSize: 18, marginBottom: 5, color: '#007AFF' },
-  itemDescription: { fontSize: 14, color: '#555' },
 });
