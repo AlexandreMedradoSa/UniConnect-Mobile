@@ -92,7 +92,7 @@ export default function RegisterScreen() {
 
       Alert.alert('Sucesso', data.message || 'Usuário registrado com sucesso!');
       setLoading(false);
-      router.push('/');
+      router.push('/onboarding');
     } catch (error) {
       console.error('Erro na requisição de registro:', error);
       Alert.alert('Erro', 'Erro ao conectar com a API');
