@@ -979,7 +979,7 @@ export default function OnboardingScreen() {
                 </ThemedText>
               </TouchableOpacity>
             </View>
-            <ThemedText type="subtitle" style={styles.subtitle}>
+            <ThemedText type="defaultSemiBold" style={styles.subtitle}>
               {t.subtitle}
             </ThemedText>
 
