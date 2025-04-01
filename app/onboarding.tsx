@@ -29,101 +29,6 @@ if (!API_URL) {
   throw new Error('A API_URL deve ser configurada no seu expo.');
 }
 
-const COURSES = [
-  'Engenharia de Software',
-  'Ciência da Computação',
-  'Sistemas de Informação',
-  'Engenharia da Computação',
-  'Análise e Desenvolvimento de Sistemas',
-  'Outro',
-];
-
-const SEMESTERS = [
-  '1º semestre',
-  '2º semestre',
-  '3º semestre',
-  '4º semestre',
-  '5º semestre',
-  '6º semestre',
-  '7º semestre',
-  '8º semestre',
-  '9º semestre',
-  '10º semestre',
-];
-
-const INTEREST_TAGS = [
-  // Tecnologia
-  'Desenvolvimento Web',
-  'Desenvolvimento Mobile',
-  'UI/UX',
-  'Inteligência Artificial',
-  'Ciência de Dados',
-  'DevOps',
-  'Cloud Computing',
-  'Segurança',
-  'Blockchain',
-  'IoT',
-  
-  // Engenharias
-  'Engenharia Civil',
-  'Engenharia Mecânica',
-  'Engenharia Elétrica',
-  'Engenharia Química',
-  'Engenharia de Produção',
-  'Engenharia Ambiental',
-  'Engenharia Aeroespacial',
-  'Engenharia Biomédica',
-  
-  // Ciências
-  'Física',
-  'Química',
-  'Biologia',
-  'Matemática',
-  'Estatística',
-  'Astronomia',
-  'Geologia',
-  'Oceanografia',
-  
-  // Saúde
-  'Medicina',
-  'Enfermagem',
-  'Fisioterapia',
-  'Nutrição',
-  'Psicologia',
-  'Odontologia',
-  'Farmácia',
-  'Educação Física',
-  
-  // Humanas
-  'Direito',
-  'Administração',
-  'Economia',
-  'Marketing',
-  'Jornalismo',
-  'Publicidade',
-  'Psicologia',
-  'Pedagogia',
-  
-  // Artes
-  'Arquitetura',
-  'Design',
-  'Música',
-  'Artes Visuais',
-  'Cinema',
-  'Teatro',
-  'Dança',
-  'Fotografia',
-  
-  // Idiomas
-  'Inglês',
-  'Espanhol',
-  'Francês',
-  'Alemão',
-  'Italiano',
-  'Português',
-  'Chinês',
-  'Japonês',
-];
 
 const TRANSLATIONS = {
   'pt-BR': {
@@ -144,8 +49,6 @@ const TRANSLATIONS = {
       github: 'GitHub',
       linkedin: 'LinkedIn',
       portfolio: 'Portfólio',
-      notifications: 'Receber notificações',
-      showProfile: 'Perfil público',
       photo: 'Adicionar foto',
     },
     placeholders: {
@@ -202,8 +105,6 @@ const TRANSLATIONS = {
       github: 'GitHub',
       linkedin: 'LinkedIn',
       portfolio: 'Portfolio',
-      notifications: 'Receive notifications',
-      showProfile: 'Public profile',
       photo: 'Add photo',
     },
     placeholders: {
@@ -258,39 +159,104 @@ export default function OnboardingScreen() {
   const [github, setGithub] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [portfolio, setPortfolio] = useState('');
-  const [notifications, setNotifications] = useState(true);
-  const [showProfile, setShowProfile] = useState(true);
   const [showCoursePicker, setShowCoursePicker] = useState(false);
-  const [showSemesterPicker, setShowSemesterPicker] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [language, setLanguage] = useState<Language>('pt-BR');
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
+  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
+  const [availableInterests, setAvailableInterests] = useState<string[]>([]);
   const router = useRouter();
   const t = TRANSLATIONS[language];
 
   useEffect(() => {
     loadProgress();
+    loadInteresses();
+    loadCursos();
   }, []);
 
   const loadProgress = async () => {
     try {
-      const savedProgress = await AsyncStorage.getItem('onboardingProgress');
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        setCurrentStep(progress.step);
-        setCourse(progress.course);
-        setSemester(progress.semester);
-        setAge(progress.age);
-        setInterests(progress.interests || []);
-        setBio(progress.bio);
-        setGithub(progress.github);
-        setLinkedin(progress.linkedin);
-        setPortfolio(progress.portfolio);
-        setProfileImage(progress.profileImage);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/');
+        return;
       }
+
+      const response = await fetch(`${API_URL}/api/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar perfil');
+      }
+
+      const data = await response.json();
+      
+      setCurrentStep(1);
+      setCourse(data.curso || '');
+      setSemester(data.semestre || '');
+      setAge(data.idade?.toString() || '');
+      setInterests(data.interesses ? data.interesses.split(', ') : []);
+      setBio(data.biografia || '');
+      setGithub(data.github || '');
+      setLinkedin(data.linkedin || '');
+      setPortfolio(data.portfolio || '');
+      setProfileImage(data.foto_perfil || null);
     } catch (error) {
       console.error('Erro ao carregar progresso:', error);
+    }
+  };
+
+  const loadInteresses = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/interesses`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar interesses');
+      }
+
+      const data = await response.json();
+      setAvailableInterests(data);
+    } catch (error) {
+      console.error('Erro ao carregar interesses:', error);
+    }
+  };
+
+  const loadCursos = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/cursos`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar cursos');
+      }
+
+      const data = await response.json();
+      setAvailableCourses(data);
+    } catch (error) {
+      console.error('Erro ao carregar cursos:', error);
     }
   };
 
@@ -347,22 +313,83 @@ export default function OnboardingScreen() {
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+      if (!result.canceled) {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('foto', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: 'foto_perfil.jpg',
+        } as any);
+
+        const response = await fetch(`${API_URL}/api/profile/foto`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao fazer upload da foto');
+        }
+
+        const data = await response.json();
+        setProfileImage(data.foto_perfil);
+        Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload da foto:', error);
+      Alert.alert('Erro', 'Erro ao fazer upload da foto de perfil');
     }
   };
 
-  const handleAddCustomInterest = () => {
+  const handleAddCustomInterest = async () => {
     if (customInterest.trim() && !interests.includes(customInterest.trim())) {
-      setInterests([...interests, customInterest.trim()]);
-      setCustomInterest('');
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/api/interesses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: customInterest.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao adicionar interesse');
+        }
+
+        const data = await response.json();
+        setInterests([...interests, data.nome]);
+        setCustomInterest('');
+        Alert.alert('Sucesso', 'Interesse adicionado com sucesso!');
+      } catch (error) {
+        console.error('Erro ao adicionar interesse:', error);
+        Alert.alert('Erro', 'Erro ao adicionar interesse personalizado');
+      }
     }
   };
 
@@ -455,23 +482,22 @@ export default function OnboardingScreen() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/profile/complete`, {
-        method: 'POST',
+      // Atualiza o perfil do usuário
+      const response = await fetch(`${API_URL}/api/profile`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          course,
-          semester,
-          age: parseInt(age),
-          interests: interests.join(', '),
-          bio: bio.trim(),
+          curso: course,
+          semestre: semester,
+          idade: parseInt(age),
+          interesses: interests.join(', '),
+          biografia: bio.trim(),
           github: github.trim(),
           linkedin: linkedin.trim(),
           portfolio: portfolio.trim(),
-          notifications,
-          showProfile,
         }),
       });
 
@@ -493,12 +519,39 @@ export default function OnboardingScreen() {
     }
   };
 
-  const toggleInterest = (interest: string) => {
-    setInterests(prev =>
-      prev.includes(interest)
-        ? prev.filter(i => i !== interest)
-        : [...prev, interest]
-    );
+  const toggleInterest = async (interest: string) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+        return;
+      }
+
+      const isSelected = interests.includes(interest);
+      const response = await fetch(`${API_URL}/api/profile/interesses`, {
+        method: isSelected ? 'DELETE' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          interesse: interest,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar interesses');
+      }
+
+      setInterests(prev =>
+        isSelected
+          ? prev.filter(i => i !== interest)
+          : [...prev, interest]
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar interesse:', error);
+      Alert.alert('Erro', 'Erro ao atualizar interesse');
+    }
   };
 
   const handleSkip = async () => {
@@ -520,11 +573,40 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleOtherCourseSubmit = () => {
+  const handleOtherCourseSubmit = async () => {
     if (otherCourse.trim()) {
-      setCourse(otherCourse);
-      setShowOtherCourseInput(false);
-      setShowCoursePicker(false);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/api/cursos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: otherCourse.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao adicionar curso');
+        }
+
+        const data = await response.json();
+        setCourse(data.nome);
+        setShowOtherCourseInput(false);
+        setShowCoursePicker(false);
+        setOtherCourse('');
+        Alert.alert('Sucesso', 'Curso adicionado com sucesso!');
+      } catch (error) {
+        console.error('Erro ao adicionar curso:', error);
+        Alert.alert('Erro', 'Erro ao adicionar curso personalizado');
+      }
     }
   };
 
@@ -571,14 +653,14 @@ export default function OnboardingScreen() {
             {showTooltip === 'semester' && renderTooltip('semester')}
 
             <ThemedText style={styles.label}>{t.fields.semester} *</ThemedText>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowSemesterPicker(true)}
-            >
-              <ThemedText style={styles.pickerButtonText}>
-                {semester || t.placeholders.semester}
-              </ThemedText>
-            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder={t.placeholders.semester}
+              placeholderTextColor="#999"
+              value={semester}
+              onChangeText={setSemester}
+              editable={!loading}
+            />
 
             <TouchableOpacity
               style={styles.helpButton}
@@ -747,7 +829,7 @@ export default function OnboardingScreen() {
 
             <ThemedText style={styles.label}>{t.fields.interests}</ThemedText>
             <View style={styles.tagsContainer}>
-              {INTEREST_TAGS.map((tag) => (
+              {availableInterests.map((tag) => (
                 <Pressable
                   key={tag}
                   style={[
@@ -849,26 +931,6 @@ export default function OnboardingScreen() {
               )}
             </TouchableOpacity>
 
-            <View style={styles.switchContainer}>
-              <ThemedText style={styles.switchLabel}>{t.fields.notifications}</ThemedText>
-              <Switch
-                value={notifications}
-                onValueChange={setNotifications}
-                trackColor={{ false: '#767577', true: '#81b0ff' }}
-                thumbColor={notifications ? '#007AFF' : '#f4f3f4'}
-              />
-            </View>
-
-            <View style={styles.switchContainer}>
-              <ThemedText style={styles.switchLabel}>{t.fields.showProfile}</ThemedText>
-              <Switch
-                value={showProfile}
-                onValueChange={setShowProfile}
-                trackColor={{ false: '#767577', true: '#81b0ff' }}
-                thumbColor={showProfile ? '#007AFF' : '#f4f3f4'}
-              />
-            </View>
-
             <View style={styles.navigationButtons}>
               <TouchableOpacity
                 style={[styles.navButton, styles.backButton]}
@@ -953,7 +1015,7 @@ export default function OnboardingScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <ThemedText style={styles.modalTitle}>Selecione seu curso</ThemedText>
-            {COURSES.map((c) => (
+            {availableCourses.map((c) => (
               <TouchableOpacity
                 key={c}
                 style={styles.modalOption}
@@ -962,6 +1024,12 @@ export default function OnboardingScreen() {
                 <ThemedText style={styles.modalOptionText}>{c}</ThemedText>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => handleCourseSelect('Outro')}
+            >
+              <ThemedText style={styles.modalOptionText}>Outro</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -996,26 +1064,6 @@ export default function OnboardingScreen() {
                 <ThemedText style={styles.modalButtonText}>Confirmar</ThemedText>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      )}
-
-      {showSemesterPicker && (
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle}>Selecione seu semestre</ThemedText>
-            {SEMESTERS.map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={styles.modalOption}
-                onPress={() => {
-                  setSemester(s);
-                  setShowSemesterPicker(false);
-                }}
-              >
-                <ThemedText style={styles.modalOptionText}>{s}</ThemedText>
-              </TouchableOpacity>
-            ))}
           </View>
         </View>
       )}
