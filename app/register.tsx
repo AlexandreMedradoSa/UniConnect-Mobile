@@ -107,7 +107,7 @@ export default function RegisterScreen() {
           <ThemedText type="title" style={styles.logoText}>
             UniConnect
           </ThemedText>
-          <ThemedText type="subtitle" style={styles.welcomeText}>
+          <ThemedText type="defaultSemiBold" style={styles.welcomeText}>
             Crie sua conta e conecte-se ao seu futuro.
           </ThemedText>
           <View style={styles.card}>
@@ -179,7 +179,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
           <Link href="/" style={styles.loginLink}>
-            <ThemedText type="link" style={styles.loginLinkText}>
+            <ThemedText type="default" style={styles.loginLinkText}>
               Já tem conta? Faça login
             </ThemedText>
           </Link>
