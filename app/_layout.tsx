@@ -27,7 +27,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+ <>
       <Stack
         screenOptions={{
           headerStyle: {
@@ -46,6 +46,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+        <Stack.Screen name="study-groups" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
