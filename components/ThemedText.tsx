@@ -17,15 +17,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#333',
   },
   default: {
     fontSize: 16,
-    color: '#fff',
+    color: '#333',
   },
   defaultSemiBold: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: '#333',
   },
 });

@@ -29,6 +29,16 @@ export interface Connection {
   interesses: string[];
 }
 
+export interface ConnectionRequest {
+  id: string;
+  name: string;
+  curso: string;
+  semestre: number;
+  interesses: string[];
+  status: 'pendente' | 'aceito' | 'recusado';
+  data: string;
+}
+
 export interface Event {
   id: number;
   nome: string;
