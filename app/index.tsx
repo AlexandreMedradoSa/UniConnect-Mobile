@@ -71,10 +71,15 @@ export default function LoginScreen() {
       }
 
       await AsyncStorage.setItem('token', data.token);
-      const hasCompletedOnboarding = await AsyncStorage.getItem('hasCompletedOnboarding');
+      await AsyncStorage.setItem('userId', data.userId);
+      const hasCompletedOnboarding = await AsyncStorage.getItem(
+        'hasCompletedOnboarding',
+      );
       Alert.alert('Sucesso', 'Login efetuado com sucesso!');
       setLoading(false);
-      router.push(hasCompletedOnboarding === 'true' ? '/dashboard' : '/onboarding');
+      router.push(
+        hasCompletedOnboarding === 'true' ? '/dashboard' : '/onboarding',
+      );
     } catch (error) {
       console.error('Erro na requisição de login:', error);
       Alert.alert('Erro', 'Erro ao conectar com a API');
