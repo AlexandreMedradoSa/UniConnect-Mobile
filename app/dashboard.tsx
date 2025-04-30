@@ -13,15 +13,47 @@ import {
   Text,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ThemedText } from '@components/ThemedText';
+import { ThemedText } from '../components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { GroupsSection } from '@components/dashboard/GroupsSection';
-import { ConnectionsSection } from '@components/dashboard/ConnectionsSection';
-import { EventsSection } from '@components/dashboard/EventsSection';
-import { UserProfile, Group, Connection, Event } from '@/types/dashboard.types';
+import { GroupsSection } from '../components/dashboard/GroupsSection';
+import { ConnectionsSection } from '../components/dashboard/ConnectionsSection';
+import { EventsSection } from '../components/dashboard/EventsSection';
+import { ChatSection } from '../components/dashboard/ChatSection';
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  curso: string | null;
+  semestre: number | null;
+  interesses: string[] | null;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  members: number;
+}
+
+interface Connection {
+  id: string;
+  name: string;
+  email: string;
+  curso: string | null;
+  semestre: number | null;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+}
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
 if (!API_URL) {
@@ -34,14 +66,15 @@ type Course = {
 };
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'courses' | 'studyGroups' | 'profile';
+  id: 'groups' | 'connections' | 'events' | 'courses' | 'chat' | 'profile' | 'studyGroups';
   label: string;
   icon:
     | 'people-outline'
     | 'person-add-outline'
     | 'calendar-outline'
     | 'book-outline'
-    | 'person-outline';
+    | 'person-outline'
+    | 'chatbubble-outline';
 };
 
 const navItems: NavItem[] = [
@@ -49,6 +82,7 @@ const navItems: NavItem[] = [
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
   { id: 'courses', label: 'Cursos', icon: 'book-outline' },
+  { id: 'chat', label: 'Torpedo', icon: 'chatbubble-outline' },
   { id: 'studyGroups', label: 'Grupos de Estudo', icon: 'book-outline' },
   { id: 'profile', label: 'Perfil', icon: 'person-outline' },
 ];
@@ -64,7 +98,6 @@ export default function DashboardScreen() {
   const [courseTitle, setCourseTitle] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [activeSection, setActiveSection] = useState<NavItem['id']>('groups');
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarWidth = useRef(new Animated.Value(65)).current;
 
@@ -195,6 +228,14 @@ export default function DashboardScreen() {
       await fetchCourses(token || '');
     } catch (error) {
       console.error('Erro ao excluir curso:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    const token = await AsyncStorage.getItem('token');
+    const userId = await AsyncStorage.getItem('userId');
+    if (token && userId) {
+      await fetchConnections(token, userId);
     }
   };
 
@@ -333,11 +374,13 @@ export default function DashboardScreen() {
       case 'groups':
         return <GroupsSection groups={groups} />;
       case 'connections':
-        return <ConnectionsSection connections={connections} />;
+        return <ConnectionsSection onRefresh={handleRefresh} />;
       case 'events':
         return <EventsSection events={events} />;
       case 'courses':
         return <CoursesSection />;
+      case 'chat':
+        return <ChatSection />;
       case 'studyGroups':
         router.push('/study-groups');
         return null;

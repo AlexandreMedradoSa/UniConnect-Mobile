@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Text,
 } from 'react-native';
-import { ThemedText } from '@components/ThemedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
