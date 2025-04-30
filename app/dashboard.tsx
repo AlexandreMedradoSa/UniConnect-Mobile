@@ -34,7 +34,7 @@ type Course = {
 };
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'courses' | 'profile';
+  id: 'groups' | 'connections' | 'events' | 'courses' | 'studyGroups' | 'profile';
   label: string;
   icon:
     | 'people-outline'
@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
   { id: 'courses', label: 'Cursos', icon: 'book-outline' },
+  { id: 'studyGroups', label: 'Grupos de Estudo', icon: 'book-outline' },
   { id: 'profile', label: 'Perfil', icon: 'person-outline' },
 ];
 
@@ -337,6 +338,9 @@ export default function DashboardScreen() {
         return <EventsSection events={events} />;
       case 'courses':
         return <CoursesSection />;
+      case 'studyGroups':
+        router.push('/study-groups');
+        return null;
       default:
         return null;
     }
