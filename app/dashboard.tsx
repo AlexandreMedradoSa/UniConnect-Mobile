@@ -60,14 +60,15 @@ if (!API_URL) {
 }
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile';
+  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups';
   label: string;
   icon:
     | 'people-outline'
     | 'person-add-outline'
     | 'calendar-outline'
     | 'person-outline'
-    | 'chatbubble-outline';
+    | 'chatbubble-outline'
+    | 'book-outline';
 };
 
 const navItems: NavItem[] = [
@@ -75,6 +76,7 @@ const navItems: NavItem[] = [
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
   { id: 'chat', label: 'Torpedo', icon: 'chatbubble-outline' },
+  { id: 'studyGroups', label: 'Grupos de Estudo', icon: 'book-outline' },
   { id: 'profile', label: 'Perfil', icon: 'person-outline' },
 ];
 
@@ -86,7 +88,7 @@ export default function DashboardScreen() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [activeSection, setActiveSection] = useState<
-    'groups' | 'connections' | 'events' | 'chat' | 'profile'
+  'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
   >('groups');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -276,6 +278,9 @@ export default function DashboardScreen() {
         return <EventsSection events={events} />;
       case 'chat':
         return <ChatSection />;
+      case 'studyGroups':
+        router.push('/study-groups');
+        return null;
       default:
         return null;
     }
