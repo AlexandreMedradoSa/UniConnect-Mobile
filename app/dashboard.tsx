@@ -10,15 +10,47 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ThemedText } from '@components/ThemedText';
+import { ThemedText } from '../components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { GroupsSection } from '@components/dashboard/GroupsSection';
-import { ConnectionsSection } from '@components/dashboard/ConnectionsSection';
-import { EventsSection } from '@components/dashboard/EventsSection';
-import { UserProfile, Group, Connection, Event } from '@/types/dashboard.types';
+import { GroupsSection } from '../components/dashboard/GroupsSection';
+import { ConnectionsSection } from '../components/dashboard/ConnectionsSection';
+import { EventsSection } from '../components/dashboard/EventsSection';
+import { ChatSection } from '../components/dashboard/ChatSection';
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  curso: string | null;
+  semestre: number | null;
+  interesses: string[] | null;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  members: number;
+}
+
+interface Connection {
+  id: string;
+  name: string;
+  email: string;
+  curso: string | null;
+  semestre: number | null;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+}
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
 if (!API_URL) {
@@ -28,19 +60,21 @@ if (!API_URL) {
 }
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'profile';
+  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile';
   label: string;
   icon:
     | 'people-outline'
     | 'person-add-outline'
     | 'calendar-outline'
-    | 'person-outline';
+    | 'person-outline'
+    | 'chatbubble-outline';
 };
 
 const navItems: NavItem[] = [
   { id: 'groups', label: 'Grupos', icon: 'people-outline' },
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
+  { id: 'chat', label: 'Torpedo', icon: 'chatbubble-outline' },
   { id: 'profile', label: 'Perfil', icon: 'person-outline' },
 ];
 
@@ -52,7 +86,7 @@ export default function DashboardScreen() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [activeSection, setActiveSection] = useState<
-    'groups' | 'connections' | 'events' | 'profile'
+    'groups' | 'connections' | 'events' | 'chat' | 'profile'
   >('groups');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -154,6 +188,14 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleRefresh = async () => {
+    const token = await AsyncStorage.getItem('token');
+    const userId = await AsyncStorage.getItem('userId');
+    if (token && userId) {
+      await fetchConnections(token, userId);
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       const token = await AsyncStorage.getItem('token');
@@ -229,9 +271,11 @@ export default function DashboardScreen() {
       case 'groups':
         return <GroupsSection groups={groups} />;
       case 'connections':
-        return <ConnectionsSection connections={connections} />;
+        return <ConnectionsSection onRefresh={handleRefresh} />;
       case 'events':
         return <EventsSection events={events} />;
+      case 'chat':
+        return <ChatSection />;
       default:
         return null;
     }
