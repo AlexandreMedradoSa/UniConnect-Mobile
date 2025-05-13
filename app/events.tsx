@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 
 interface Evento {
   id: string;
@@ -28,6 +29,11 @@ interface Evento {
   participa?: boolean;
   conexoesParticipando?: string[];
   evento_participantes?: string[];
+}
+
+const API_URL = Constants.expoConfig?.extra?.API_URL;
+if (!API_URL) {
+  throw new Error('A API_URL deve ser configurada no seu expo.');
 }
 
 export default function EventosList() {
@@ -62,9 +68,6 @@ export default function EventosList() {
         const storedToken = await AsyncStorage.getItem('token');
         setUserId(storedUserId);
         setToken(storedToken);
-        if (storedToken) {
-          fetchEventos();
-        }
       } catch (error) {
         console.error('Erro ao carregar dados do usuário:', error);
       }
@@ -72,30 +75,39 @@ export default function EventosList() {
     loadUserData();
   }, []);
 
+  useEffect(() => {
+    if (userId && token) {
+      fetchEventos();
+    }
+  }, [userId, token]);
+
   const fetchEventos = async (): Promise<void> => {
     try {
       setLoading(true);
-      const [eventosResponse, historicoResponse, conexoesResponse] = await Promise.all([
-        fetch('YOUR_BACKEND_URL/eventos', {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }),
-        token
-          ? fetch('YOUR_BACKEND_URL/eventos/historico', {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          : { json: () => Promise.resolve({ data: [] }) },
-        token
-          ? fetch(`YOUR_BACKEND_URL/users/${userId}/conexoes`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          : { json: () => Promise.resolve({ data: [] }) },
-      ]);
+      if (!userId || !token) {
+        setLoading(false);
+        return;
+      }
+      const [eventosResponse, historicoResponse, conexoesResponse] =
+        await Promise.all([
+          fetch(`${API_URL}/api/eventos`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/api/eventos/historico`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/api/users/${userId}/conexoes`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
       const eventosData = await eventosResponse.json();
       const historicoData = await historicoResponse.json();
       const conexoesData = await conexoesResponse.json();
 
-      const eventosParticipadosIds = historicoData.data.map((evento: Evento) => evento.id);
+      const eventosParticipadosIds = historicoData.data.map(
+        (evento: Evento) => evento.id,
+      );
       const conexoes = conexoesData.data.map((conexao: any) => ({
         id: conexao.id,
         nome: conexao.name,
@@ -107,9 +119,13 @@ export default function EventosList() {
         );
 
         const conexoesParticipandoNomes = participantesIds
-          .filter((id: string) => conexoes.some((conexao: { id: string }) => conexao.id === id))
+          .filter((id: string) =>
+            conexoes.some((conexao: { id: string }) => conexao.id === id),
+          )
           .map((id: string) => {
-            const conexao = conexoes.find((conexao: { id: string }) => conexao.id === id);
+            const conexao = conexoes.find(
+              (conexao: { id: string }) => conexao.id === id,
+            );
             return conexao ? conexao.nome : id;
           });
 
@@ -137,10 +153,13 @@ export default function EventosList() {
     }
 
     try {
-      const response = await fetch(`YOUR_BACKEND_URL/eventos/${eventoId}/participar`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `YOUR_BACKEND_URL/eventos/${eventoId}/participar`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (!response.ok) throw new Error('Erro ao participar do evento');
 
@@ -151,12 +170,17 @@ export default function EventosList() {
     }
   };
 
-  const handleCancelarParticipacao = async (eventoId: string): Promise<void> => {
+  const handleCancelarParticipacao = async (
+    eventoId: string,
+  ): Promise<void> => {
     try {
-      const response = await fetch(`YOUR_BACKEND_URL/eventos/${eventoId}/participar`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `YOUR_BACKEND_URL/eventos/${eventoId}/participar`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (!response.ok) throw new Error('Erro ao cancelar participação');
 
@@ -231,17 +255,20 @@ export default function EventosList() {
     if (!editingEvento) return;
 
     try {
-      const response = await fetch(`YOUR_BACKEND_URL/eventos/${editingEvento.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `YOUR_BACKEND_URL/eventos/${editingEvento.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...editingEvento,
+            data: `${editingEvento.data}T00:00:00`,
+          }),
         },
-        body: JSON.stringify({
-          ...editingEvento,
-          data: `${editingEvento.data}T00:00:00`,
-        }),
-      });
+      );
 
       if (!response.ok) throw new Error('Erro ao atualizar evento');
 
@@ -353,10 +380,7 @@ export default function EventosList() {
           value={search}
           onChangeText={(text: string) => setSearch(text)}
         />
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleSearch}
-        >
+        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           <Ionicons name="search" size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -374,14 +398,16 @@ export default function EventosList() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{currentEvento.nome}</Text>
             <Text style={styles.modalText}>
-              <Text style={styles.modalLabel}>Descrição:</Text> {currentEvento.descricao}
+              <Text style={styles.modalLabel}>Descrição:</Text>{' '}
+              {currentEvento.descricao}
             </Text>
             <Text style={styles.modalText}>
               <Text style={styles.modalLabel}>Data:</Text>{' '}
               {new Date(currentEvento.data).toLocaleDateString()}
             </Text>
             <Text style={styles.modalText}>
-              <Text style={styles.modalLabel}>Curso:</Text> {currentEvento.curso}
+              <Text style={styles.modalLabel}>Curso:</Text>{' '}
+              {currentEvento.curso}
             </Text>
             <Text style={styles.modalText}>
               <Text style={styles.modalLabel}>Localização:</Text>{' '}
@@ -452,7 +478,10 @@ export default function EventosList() {
               placeholder="Observações Adicionais"
               value={editingEvento.observacoes_adicionais}
               onChangeText={(text: string) =>
-                setEditingEvento({ ...editingEvento, observacoes_adicionais: text })
+                setEditingEvento({
+                  ...editingEvento,
+                  observacoes_adicionais: text,
+                })
               }
               multiline
             />
@@ -753,4 +782,4 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#28a745',
   },
-}); 
+});

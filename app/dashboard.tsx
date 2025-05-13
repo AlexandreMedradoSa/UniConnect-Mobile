@@ -66,7 +66,7 @@ export default function DashboardScreen() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [activeSection, setActiveSection] = useState<
-  'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
+    'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
   >('groups');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -177,19 +177,28 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    async function loadData() {
+    async function loadProfile() {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
         router.replace('/');
         return;
       }
       await fetchProfile(token);
-      await Promise.all([
-        fetchGroups(token),
-        fetchConnections(token, profile?.id || ''),
-        fetchEvents(token),
-      ]);
       setLoading(false);
+    }
+    loadProfile();
+  }, []);
+
+  useEffect(() => {
+    async function loadData() {
+      const token = await AsyncStorage.getItem('token');
+      if (token && profile?.id) {
+        await Promise.all([
+          fetchGroups(token),
+          fetchConnections(token, profile.id),
+          fetchEvents(token),
+        ]);
+      }
     }
     loadData();
   }, [profile?.id]);

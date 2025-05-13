@@ -40,7 +40,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "API_URL": "http://10.50.85.197:3000"
+      "API_URL": "http://10.22.12.131:3000"
     }
   }
 }
