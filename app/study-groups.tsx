@@ -9,10 +9,16 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ThemedText } from '@/components/ThemedText';
+import Constants from 'expo-constants';
+
+const API_URL = Constants.expoConfig?.extra?.API_URL;
 
 interface StudyGroup {
   id: string;
@@ -58,7 +64,7 @@ export default function StudyGroups() {
   const fetchStudyGroups = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('YOUR_BACKEND_URL/study-groups', {
+      const response = await fetch(`${API_URL}/study-groups`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +88,7 @@ export default function StudyGroups() {
     setJoiningGroup(groupId);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`YOUR_BACKEND_URL/study-groups/${groupId}/join`, {
+      const response = await fetch(`${API_URL}/study-groups/${groupId}/join`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -106,7 +112,7 @@ export default function StudyGroups() {
   const handleLeaveGroup = async (groupId: string) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`YOUR_BACKEND_URL/study-groups/${groupId}/leave`, {
+      const response = await fetch(`${API_URL}/study-groups/${groupId}/leave`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -210,77 +216,112 @@ export default function StudyGroups() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search groups..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <View style={styles.filterContainer}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <LinearGradient colors={['#005BB5', '#007AFF']} style={styles.container}>
+        <View style={styles.header}>
           <TouchableOpacity
-            style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
-            onPress={() => setFilter('all')}
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              All
-            </Text>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'active' && styles.filterButtonActive]}
-            onPress={() => setFilter('active')}
-          >
-            <Text style={[styles.filterText, filter === 'active' && styles.filterTextActive]}>
-              Active
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'myGroups' && styles.filterButtonActive]}
-            onPress={() => setFilter('myGroups')}
-          >
-            <Text style={[styles.filterText, filter === 'myGroups' && styles.filterTextActive]}>
-              My Groups
-            </Text>
-          </TouchableOpacity>
+          <ThemedText type="title" style={styles.headerTitle}>
+            Grupos de Estudo
+          </ThemedText>
         </View>
-      </View>
 
-      <FlatList
-        data={filteredGroups}
-        renderItem={renderGroup}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              fetchStudyGroups();
-            }}
+        <View style={styles.content}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search groups..."
+              placeholderTextColor="#666"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+                onPress={() => setFilter('all')}
+              >
+                <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filter === 'active' && styles.filterButtonActive]}
+                onPress={() => setFilter('active')}
+              >
+                <Text style={[styles.filterText, filter === 'active' && styles.filterTextActive]}>
+                  Active
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filter === 'myGroups' && styles.filterButtonActive]}
+                onPress={() => setFilter('myGroups')}
+              >
+                <Text style={[styles.filterText, filter === 'myGroups' && styles.filterTextActive]}>
+                  My Groups
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <FlatList
+            data={filteredGroups}
+            renderItem={renderGroup}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  fetchStudyGroups();
+                }}
+              />
+            }
           />
-        }
-      />
-    </View>
+        </View>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#005BB5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    color: '#fff',
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   searchContainer: {
     padding: 16,
@@ -294,6 +335,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     marginBottom: 12,
+    color: '#333',
   },
   filterContainer: {
     flexDirection: 'row',
@@ -340,6 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     flex: 1,
+    color: '#333',
   },
   statusBadge: {
     backgroundColor: '#e1f5fe',
