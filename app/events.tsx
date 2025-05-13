@@ -15,14 +15,15 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
 if (!API_URL) {
   throw new Error('A API_URL deve ser configurada no seu Expo (em app.json ou app.config.js)');
 }
+
 
 interface Evento {
   id: string;
@@ -38,6 +39,11 @@ interface Evento {
   participa?: boolean;
   conexoesParticipando?: string[];
   evento_participantes?: string[];
+}
+
+const API_URL = Constants.expoConfig?.extra?.API_URL;
+if (!API_URL) {
+  throw new Error('A API_URL deve ser configurada no seu expo.');
 }
 
 export default function EventosList() {
@@ -67,44 +73,109 @@ export default function EventosList() {
   const [userId, setUserId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadUserData = async (): Promise<void> => {
-      try {
-        const storedUserId = await AsyncStorage.getItem('userId');
-        const storedToken = await AsyncStorage.getItem('token');
-        setUserId(storedUserId);
-        setToken(storedToken);
-        if (storedToken) {
-          fetchEventos();
-          fetchHistorico();
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error);
-        setError('Erro ao carregar dados do usuário');
-      }
-    };
-    loadUserData();
-  }, []);
-
-  const fetchEventos = async (): Promise<void> => {
+ useEffect(() => {
+  const loadUserData = async (): Promise<void> => {
     try {
-      setLoading(true);
-      const response = await fetch(`${API_URL}/api/eventos`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      
-      if (!response.ok) throw new Error('Erro ao buscar eventos');
-      
-      const data = await response.json();
-      setEventos(data);
-    } catch (err) {
-      console.error('Erro ao buscar eventos:', err);
-      setError('Erro ao carregar eventos');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      const storedUserId = await AsyncStorage.getItem('userId');
+      const storedToken = await AsyncStorage.getItem('token');
+      setUserId(storedUserId);
+      setToken(storedToken);
+
+      if (storedToken) {
+        fetchEventos();
+        fetchHistorico();
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do usuário:', error);
+      setError('Erro ao carregar dados do usuário');
     }
   };
+  loadUserData();
+}, []);
+
+
+  useEffect(() => {
+    if (userId && token) {
+      fetchEventos();
+    }
+  }, [userId, token]);
+
+ const fetchEventos = async (): Promise<void> => {
+  try {
+    setLoading(true);
+
+    if (!userId || !token) {
+      setLoading(false);
+      return;
+    }
+
+    const [eventosResponse, historicoResponse, conexoesResponse] =
+      await Promise.all([
+        fetch(`${API_URL}/api/eventos`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/api/eventos/historico`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/api/users/${userId}/conexoes`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+    if (
+      !eventosResponse.ok ||
+      !historicoResponse.ok ||
+      !conexoesResponse.ok
+    ) {
+      throw new Error('Erro ao buscar eventos, histórico ou conexões');
+    }
+
+    const eventosData = await eventosResponse.json();
+    const historicoData = await historicoResponse.json();
+    const conexoesData = await conexoesResponse.json();
+
+    const eventosParticipadosIds = historicoData.data.map(
+      (evento: Evento) => evento.id,
+    );
+
+    const conexoes = conexoesData.data.map((conexao: any) => ({
+      id: conexao.id,
+      nome: conexao.name,
+    }));
+
+    const eventosDisponiveis = eventosData.data.map((evento: Evento) => {
+      const participantesIds = (evento.evento_participantes || []).map(
+        (participante: any) => participante.usuario_id,
+      );
+
+      const conexoesParticipandoNomes = participantesIds
+        .filter((id: string) =>
+          conexoes.some((conexao: { id: string }) => conexao.id === id),
+        )
+        .map((id: string) => {
+          const conexao = conexoes.find(
+            (conexao: { id: string }) => conexao.id === id,
+          );
+          return conexao ? conexao.nome : id;
+        });
+
+      return {
+        ...evento,
+        participa: eventosParticipadosIds.includes(evento.id),
+        conexoesParticipando: conexoesParticipandoNomes,
+      };
+    });
+
+    setEventos(eventosDisponiveis);
+  } catch (err) {
+    console.error('Erro ao buscar eventos:', err);
+    setError('Erro ao carregar eventos');
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+
 
   const fetchHistorico = async (): Promise<void> => {
     try {
@@ -132,9 +203,7 @@ export default function EventosList() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!response.ok) throw new Error('Erro ao participar do evento');
-
       Alert.alert('Sucesso', 'Participação confirmada!');
       fetchEventos();
     } catch (err) {
@@ -142,13 +211,14 @@ export default function EventosList() {
     }
   };
 
-  const handleCancelarParticipacao = async (eventoId: string): Promise<void> => {
+  const handleCancelarParticipacao = async (
+    eventoId: string,
+  ): Promise<void> => {
     try {
       const response = await fetch(`${API_URL}/api/eventos/${eventoId}/participar`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!response.ok) throw new Error('Erro ao cancelar participação');
 
       Alert.alert('Sucesso', 'Participação cancelada!');
@@ -242,9 +312,11 @@ export default function EventosList() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(editingEvento),
+        body: JSON.stringify({
+          ...editingEvento,
+          data: `${editingEvento.data}T00:00:00`,
+        }),
       });
-
       if (!response.ok) throw new Error('Erro ao atualizar evento');
 
       Alert.alert('Sucesso', 'Evento atualizado com sucesso!');
@@ -357,11 +429,9 @@ export default function EventosList() {
           value={search}
           onChangeText={setSearch}
         />
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleSearch}
-        >
+        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           <Ionicons name="search" size={24} color="#fff" />
+        </TouchableOpacity>
         </TouchableOpacity>
       </View>
 
@@ -379,38 +449,45 @@ export default function EventosList() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{currentEvento.nome}</Text>
-            <ScrollView>
-              <View style={styles.modalInfoContainer}>
-                <View style={styles.modalInfoRow}>
-                  <Ionicons name="document-text-outline" size={20} color="#007AFF" />
-                  <Text style={styles.modalText}>{currentEvento.descricao}</Text>
-                </View>
-                <View style={styles.modalInfoRow}>
-                  <Ionicons name="calendar-outline" size={20} color="#007AFF" />
-                  <Text style={styles.modalText}>
-                    {new Date(currentEvento.data).toLocaleDateString()}
-                  </Text>
-                </View>
-                <View style={styles.modalInfoRow}>
-                  <Ionicons name="school-outline" size={20} color="#007AFF" />
-                  <Text style={styles.modalText}>{currentEvento.curso}</Text>
-                </View>
-                <View style={styles.modalInfoRow}>
-                  <Ionicons name="location-outline" size={20} color="#007AFF" />
-                  <Text style={styles.modalText}>
-                    {currentEvento.localizacao || 'Não informada'}
-                  </Text>
-                </View>
-                {currentEvento.observacoes_adicionais && (
-                  <View style={styles.modalInfoRow}>
-                    <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-                    <Text style={styles.modalText}>
-                      {currentEvento.observacoes_adicionais}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
+<ScrollView>
+  <View style={styles.modalInfoContainer}>
+    <View style={styles.modalInfoRow}>
+      <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+      <Text style={styles.modalText}>
+        <Text style={styles.modalLabel}>Descrição:</Text> {currentEvento.descricao}
+      </Text>
+    </View>
+
+    <View style={styles.modalInfoRow}>
+      <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+      <Text style={styles.modalText}>
+        <Text style={styles.modalLabel}>Data:</Text> {new Date(currentEvento.data).toLocaleDateString()}
+      </Text>
+    </View>
+
+    <View style={styles.modalInfoRow}>
+      <Ionicons name="school-outline" size={20} color="#007AFF" />
+      <Text style={styles.modalText}>
+        <Text style={styles.modalLabel}>Curso:</Text> {currentEvento.curso}
+      </Text>
+    </View>
+
+    <View style={styles.modalInfoRow}>
+      <Ionicons name="location-outline" size={20} color="#007AFF" />
+      <Text style={styles.modalText}>
+        <Text style={styles.modalLabel}>Localização:</Text> {currentEvento.localizacao || 'Não informada'}
+      </Text>
+    </View>
+
+    <View style={styles.modalInfoRow}>
+      <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+      <Text style={styles.modalText}>
+        <Text style={styles.modalLabel}>Observações:</Text> {currentEvento.observacoes_adicionais || 'Nenhuma'}
+      </Text>
+    </View>
+  </View>
+</ScrollView>
+
             <TouchableOpacity
               style={[styles.button, styles.closeButton]}
               onPress={() => setIsViewingDetails(false)}
@@ -420,6 +497,94 @@ export default function EventosList() {
           </View>
         </View>
       )}
+
+{/* Modal de Edição */}
+{editingEvento && (
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalTitle}>Editar Evento</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Nome do Evento"
+        value={editingEvento.nome}
+        onChangeText={(text: string) =>
+          setEditingEvento({ ...editingEvento, nome: text })
+        }
+      />
+      <TextInput
+        style={[styles.input, styles.textArea]}
+        placeholder="Descrição"
+        value={editingEvento.descricao}
+        onChangeText={(text: string) =>
+          setEditingEvento({ ...editingEvento, descricao: text })
+        }
+        multiline
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Data (YYYY-MM-DD)"
+        value={editingEvento.data}
+        onChangeText={(text: string) =>
+          setEditingEvento({ ...editingEvento, data: text })
+        }
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Curso"
+        value={editingEvento.curso}
+        onChangeText={(text: string) =>
+          setEditingEvento({ ...editingEvento, curso: text })
+        }
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Localização"
+        value={editingEvento.localizacao}
+        onChangeText={(text: string) =>
+          setEditingEvento({ ...editingEvento, localizacao: text })
+        }
+      />
+      <TextInput
+        style={[styles.input, styles.textArea]}
+        placeholder="Observações Adicionais"
+        value={editingEvento.observacoes_adicionais}
+        onChangeText={(text: string) =>
+          setEditingEvento({
+            ...editingEvento,
+            observacoes_adicionais: text,
+          })
+        }
+        multiline
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Limite de Participantes"
+        value={editingEvento.limite_participantes?.toString()}
+        onChangeText={(text: string) =>
+          setEditingEvento({
+            ...editingEvento,
+            limite_participantes: parseInt(text) || 0,
+          })
+        }
+        keyboardType="numeric"
+      />
+      <View style={styles.modalButtons}>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          onPress={() => setEditingEvento(null)}
+        >
+          <Text style={styles.buttonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.saveButton]}
+          onPress={handleUpdateEvento}
+        >
+          <Text style={styles.buttonText}>Salvar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+)}
 
 
 
@@ -736,4 +901,5 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#28a745',
   },
-}); 
+});
+

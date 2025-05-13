@@ -22,6 +22,7 @@ import { GroupsSection } from '../components/dashboard/GroupsSection';
 import { ConnectionsSection } from '../components/dashboard/ConnectionsSection';
 import { EventsSection } from '../components/dashboard/EventsSection';
 import { ChatSection } from '../components/dashboard/ChatSection';
+import type { Group, Connection, Event } from '../types/dashboard.types';
 
 interface UserProfile {
   id: string;
@@ -30,29 +31,6 @@ interface UserProfile {
   curso: string | null;
   semestre: number | null;
   interesses: string[] | null;
-}
-
-interface Group {
-  id: string;
-  name: string;
-  description: string;
-  members: number;
-}
-
-interface Connection {
-  id: string;
-  name: string;
-  email: string;
-  curso: string | null;
-  semestre: number | null;
-}
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  location: string;
 }
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
@@ -93,13 +71,18 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<Group[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [courseTitle, setCourseTitle] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [activeSection, setActiveSection] = useState<NavItem['id']>('groups');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const sidebarWidth = useRef(new Animated.Value(65)).current;
+const [events, setEvents] = useState<Event[]>([]);
+const [courses, setCourses] = useState<Course[]>([]);
+const [courseTitle, setCourseTitle] = useState('');
+const [editingId, setEditingId] = useState<number | null>(null);
+
+const [activeSection, setActiveSection] = useState<
+  'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
+>('groups');
+
+const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+const sidebarWidth = useRef(new Animated.Value(65)).current;
+
 
   const textOpacity = sidebarWidth.interpolate({
     inputRange: [65, 160],
@@ -239,18 +222,34 @@ export default function DashboardScreen() {
     }
   };
 
+useEffect(() => {
+  async function loadProfile() {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) return router.replace('/');
+    await fetchProfile(token);
+
+    await Promise.all([
+      fetchGroups(token),
+      fetchConnections(token, profile?.id || ''),
+      fetchEvents(token),
+      fetchCourses(token),
+    ]);
+
+    setLoading(false);
+  }
+  loadProfile();
+}, []);
+
   useEffect(() => {
     async function loadData() {
       const token = await AsyncStorage.getItem('token');
-      if (!token) return router.replace('/');
-      await fetchProfile(token);
-      await Promise.all([
-        fetchGroups(token),
-        fetchConnections(token, profile?.id || ''),
-        fetchEvents(token),
-        fetchCourses(token),
-      ]);
-      setLoading(false);
+      if (token && profile?.id) {
+        await Promise.all([
+          fetchGroups(token),
+          fetchConnections(token, profile.id),
+          fetchEvents(token),
+        ]);
+      }
     }
     loadData();
   }, [profile?.id]);
@@ -405,13 +404,9 @@ export default function DashboardScreen() {
           </Animated.View>
           <View style={styles.mainContent}>
             <View style={styles.mainHeader}>
-              <ThemedText type="title" style={styles.headerText}>
-                Bem-vindo, {profile.name}!
-              </ThemedText>
+              {/* Cabeçalho removido conforme solicitado */}
             </View>
-            <ScrollView contentContainerStyle={styles.mainScroll}>
-              {renderContent()}
-            </ScrollView>
+            <View style={styles.mainContent}>{renderContent()}</View>
           </View>
         </View>
       </LinearGradient>
@@ -459,8 +454,16 @@ const styles = StyleSheet.create({
   activeNavText: {
     color: '#005BB5',
   },
-  mainContent: { flex: 1, padding: 20 },
-  mainHeader: { marginBottom: 20 },
-  headerText: { fontSize: 28, color: '#fff', textAlign: 'center' },
-  mainScroll: { paddingBottom: 20 },
+  mainContent: {
+    flex: 1,
+    padding: 10,
+  },
+  mainHeader: {
+    marginBottom: 20,
+  },
+  headerText: {
+    fontSize: 28,
+    color: '#fff',
+    textAlign: 'center',
+  },
 });

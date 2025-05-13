@@ -29,6 +29,7 @@ interface Message {
 
 interface Connection {
   id: string;
+  conexaoId: string;
   name: string;
   email: string;
   curso: string | null;
@@ -50,7 +51,7 @@ export function ChatSection() {
 
   useEffect(() => {
     if (selectedConnection) {
-      loadMessages(selectedConnection.id);
+      loadMessages(selectedConnection.conexaoId);
     }
   }, [selectedConnection]);
 
@@ -84,18 +85,15 @@ export function ChatSection() {
     }
   };
 
-  const loadMessages = async (connectionId: string) => {
+  const loadMessages = async (conexaoId: string) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const userId = await AsyncStorage.getItem('userId');
-
-      if (!token || !userId) {
+      if (!token) {
         setError('Erro de autenticação');
         return;
       }
-
       const response = await fetch(
-        `${API_URL}/api/users/${userId}/mensagens/${connectionId}`,
+        `${API_URL}/api/conexoes/${conexaoId}/mensagens`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -103,13 +101,17 @@ export function ChatSection() {
           },
         },
       );
-
       if (!response.ok) {
         throw new Error('Erro ao carregar mensagens');
       }
-
       const data = await response.json();
-      setMessages(data);
+      const mapped = (data as any[]).map((msg: any) => ({
+        ...msg,
+        created_at: msg.criado_em,
+        content: msg.conteudo,
+        sender_id: msg.remetente_id,
+      }));
+      setMessages(mapped);
     } catch (err) {
       setError('Erro ao carregar mensagens');
     }
@@ -120,31 +122,31 @@ export function ChatSection() {
 
     try {
       const token = await AsyncStorage.getItem('token');
-      const userId = await AsyncStorage.getItem('userId');
-
-      if (!token || !userId) {
+      if (!token) {
         setError('Erro de autenticação');
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/users/${userId}/mensagens`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${API_URL}/api/conexoes/${selectedConnection.conexaoId}/mensagens`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            conteudo: newMessage,
+          }),
         },
-        body: JSON.stringify({
-          receiver_id: selectedConnection.id,
-          content: newMessage,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Erro ao enviar mensagem');
       }
 
       setNewMessage('');
-      loadMessages(selectedConnection.id);
+      loadMessages(selectedConnection.conexaoId);
     } catch (err) {
       setError('Erro ao enviar mensagem');
     }
@@ -168,80 +170,91 @@ export function ChatSection() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.connectionsList}>
-        <FlatList
-          data={connections}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+      {selectedConnection ? (
+        <>
+          <View style={styles.chatHeader}>
             <TouchableOpacity
-              style={[
-                styles.connectionItem,
-                selectedConnection?.id === item.id && styles.selectedConnection,
-              ]}
-              onPress={() => setSelectedConnection(item)}
+              style={styles.backButton}
+              onPress={() => setSelectedConnection(null)}
             >
-              <Text style={styles.connectionName}>{item.name}</Text>
-              {item.curso && (
-                <Text style={styles.connectionInfo}>
-                  {item.curso} - {item.semestre}º semestre
-                </Text>
-              )}
+              <Ionicons name="arrow-back" size={24} color="#333" />
             </TouchableOpacity>
-          )}
-        />
-      </View>
+            <Text style={styles.chatHeaderText}>{selectedConnection.name}</Text>
+          </View>
 
-      <View style={styles.chatContainer}>
-        {selectedConnection ? (
-          <>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatHeaderText}>
-                Conversa com {selectedConnection.name}
-              </Text>
-            </View>
-
-            <FlatList
-              data={messages}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View
+          <FlatList
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View
+                style={[
+                  styles.messageContainer,
+                  item.sender_id === selectedConnection.id
+                    ? styles.receivedMessage
+                    : styles.sentMessage,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.messageContainer,
-                    item.sender_id === selectedConnection.id
-                      ? styles.receivedMessage
-                      : styles.sentMessage,
+                    styles.messageText,
+                    item.sender_id !== selectedConnection.id &&
+                      styles.sentMessageText,
                   ]}
                 >
-                  <Text style={styles.messageText}>{item.content}</Text>
-                  <Text style={styles.messageTime}>
-                    {new Date(item.created_at).toLocaleTimeString()}
-                  </Text>
-                </View>
-              )}
-              style={styles.messagesList}
-            />
+                  {item.content}
+                </Text>
+                <Text
+                  style={[
+                    styles.messageTime,
+                    item.sender_id !== selectedConnection.id &&
+                      styles.sentMessageText,
+                  ]}
+                >
+                  {new Date(item.created_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+            )}
+            style={styles.messagesList}
+          />
 
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={newMessage}
-                onChangeText={setNewMessage}
-                placeholder="Digite sua mensagem..."
-                multiline
-              />
-              <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-                <Ionicons name="send" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <View style={styles.emptyChat}>
-            <Text style={styles.emptyChatText}>
-              Selecione uma conexão para começar a conversar
-            </Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Digite sua mensagem..."
+              multiline
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+              <Ionicons name="send" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </>
+      ) : (
+        <View style={styles.connectionsContainer}>
+          <Text style={styles.connectionsTitle}>Conversas</Text>
+          <FlatList
+            data={connections}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.connectionItem}
+                onPress={() => setSelectedConnection(item)}
+              >
+                <Text style={styles.connectionName}>{item.name}</Text>
+                {item.curso && (
+                  <Text style={styles.connectionInfo}>
+                    {item.curso} - {item.semestre}º semestre
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -265,91 +278,82 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 10,
-    overflow: 'hidden',
-  },
-  connectionsList: {
-    width: 250,
-    borderRightWidth: 1,
-    borderRightColor: '#e0e0e0',
-  },
-  connectionItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  selectedConnection: {
-    backgroundColor: '#f0f0f0',
-  },
-  connectionName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  connectionInfo: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  chatContainer: {
-    flex: 1,
   },
   chatHeader: {
-    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#f8f8f8',
+    borderRadius: 10,
+  },
+  backButton: {
+    marginRight: 8,
   },
   chatHeaderText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
   },
   messagesList: {
     flex: 1,
-    padding: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   messageContainer: {
-    maxWidth: '80%',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 10,
+    maxWidth: '85%',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 6,
   },
   sentMessage: {
     alignSelf: 'flex-end',
     backgroundColor: '#005BB5',
+    borderBottomRightRadius: 5,
   },
   receivedMessage: {
     alignSelf: 'flex-start',
     backgroundColor: '#f0f0f0',
+    borderBottomLeftRadius: 5,
   },
   messageText: {
     fontSize: 16,
     color: '#333',
+    lineHeight: 20,
   },
   messageTime: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
     alignSelf: 'flex-end',
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     backgroundColor: '#f8f8f8',
+    alignItems: 'flex-end',
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
+    backgroundColor: '#f4f4f4',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
     maxHeight: 100,
+    minHeight: 36,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   sendButton: {
     backgroundColor: '#005BB5',
@@ -359,15 +363,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyChat: {
+  connectionsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#fff',
+    marginHorizontal: 10,
+    marginTop: 12,
+    borderRadius: 14,
+    paddingBottom: 8,
   },
-  emptyChatText: {
-    fontSize: 16,
+  connectionsTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    marginTop: 14,
+    marginLeft: 16,
+  },
+  connectionItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    borderRadius: 0,
+    marginBottom: 0,
+  },
+  connectionName: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  connectionInfo: {
+    fontSize: 13,
     color: '#666',
-    textAlign: 'center',
+  },
+  sentMessageText: {
+    color: '#fff',
   },
 });
