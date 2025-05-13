@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { ThemedText } from '@components/ThemedText';
-import { Group } from '@/types/dashboard.types';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { ThemedText } from '../ThemedText';
+import type { Group } from '../../types/dashboard.types';
 
 interface GroupsSectionProps {
   groups: Group[];
@@ -9,25 +9,33 @@ interface GroupsSectionProps {
 
 export function GroupsSection({ groups }: GroupsSectionProps) {
   return (
-    <>
-      <ThemedText type="title" style={styles.sectionTitle}>
-        Grupos de Estudo
-      </ThemedText>
-      {groups.map((group) => (
-        <View key={group.id} style={styles.itemCard}>
-          <ThemedText type="defaultSemiBold" style={styles.itemTitle}>
-            {group.nome}
+    <View style={styles.container}>
+      <FlatList
+        data={groups}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={() => (
+          <ThemedText type="title" style={styles.sectionTitle}>
+            Grupos de Estudo
           </ThemedText>
-          <ThemedText style={styles.itemDescription}>
-            {group.descricao}
-          </ThemedText>
-        </View>
-      ))}
-    </>
+        )}
+        renderItem={({ item: group }) => (
+          <View style={styles.itemCard}>
+            <ThemedText type="defaultSemiBold" style={styles.itemTitle}>
+              {group.nome}
+            </ThemedText>
+            <ThemedText style={styles.itemDescription}>
+              {group.descricao}
+            </ThemedText>
+          </View>
+        )}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
   sectionTitle: {
     fontSize: 24,
     color: '#fff',
