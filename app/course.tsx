@@ -9,6 +9,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Animated,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,12 +32,27 @@ export default function CoursesScreen() {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [buttonScale] = useState(new Animated.Value(1));  // Para animação de botão
+  const [buttonScale] = useState(new Animated.Value(1));
   const router = useRouter();
+  const screenHeight = Dimensions.get('window').height;
 
   useEffect(() => {
+    checkAdminAccess();
     fetchCourses();
   }, []);
+
+  const checkAdminAccess = async () => {
+    const token = await AsyncStorage.getItem('token');
+    const userData = await AsyncStorage.getItem('user');
+    if (!userData || !token) {
+      router.replace('/onboarding');
+      return;
+    }
+    const user = JSON.parse(userData);
+    if (user.role !== 'admin') {
+      router.replace('/onboarding');
+    }
+  };
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -52,7 +71,6 @@ export default function CoursesScreen() {
       Alert.alert('Erro', 'O título do curso é obrigatório');
       return;
     }
-
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
@@ -60,7 +78,6 @@ export default function CoursesScreen() {
       const endpoint = editingId
         ? `${API_URL}/api/courses/${editingId}`
         : `${API_URL}/api/courses`;
-
       const response = await fetch(endpoint, {
         method,
         headers: {
@@ -69,9 +86,7 @@ export default function CoursesScreen() {
         },
         body: JSON.stringify({ title }),
       });
-
       if (!response.ok) throw new Error('Erro ao salvar curso');
-
       setTitle('');
       setEditingId(null);
       fetchCourses();
@@ -98,78 +113,80 @@ export default function CoursesScreen() {
 
   const handleButtonPressIn = () => {
     Animated.spring(buttonScale, {
-      toValue: 1.1, // Aumenta o tamanho do botão
+      toValue: 1.1,
       friction: 3,
       tension: 100,
-      useNativeDriver: true, // Adicionando useNativeDriver
+      useNativeDriver: true,
     }).start();
   };
-  
+
   const handleButtonPressOut = () => {
     Animated.spring(buttonScale, {
-      toValue: 1, // Retorna ao tamanho original
+      toValue: 1,
       friction: 3,
       tension: 100,
-      useNativeDriver: true, // Adicionando useNativeDriver
+      useNativeDriver: true,
     }).start();
   };
-  
 
   return (
-    <LinearGradient colors={['#005BB5', '#007AFF']} style={styles.container}>
-      <Text style={styles.title}>Gerenciar Cursos</Text>
-
-      <View style={styles.addCourseContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nome do Curso"
-          placeholderTextColor="#aaa"
-          value={title}
-          onChangeText={setTitle}
-        />
-
-        <Animated.View
-          style={[
-            styles.button,
-            { transform: [{ scale: buttonScale }] },
-            loading && { opacity: 0.6 },
-          ]}
-        >
-          <TouchableOpacity
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
-            style={styles.buttonContent}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#fff" />
-            <Text style={styles.buttonText}>
-              {editingId ? 'Atualizar Curso' : 'Adicionar Curso'}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-
-      {loading && <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 10 }} />}
-
-      <FlatList
-        data={courses}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        renderItem={({ item }) => (
-          <View style={styles.courseItem}>
-            <Text style={styles.courseText}>{item.title}</Text>
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={() => { setTitle(item.title); setEditingId(item.id); }}>
-                <Ionicons name="create-outline" size={22} color="#007AFF" />
+    <LinearGradient colors={['#003f7f', '#005BB5']} style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Gerenciar Cursos</Text>
+          <View style={styles.formCard}>
+            <Text style={styles.label}>Nome do Curso</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Digite o nome do curso"
+              placeholderTextColor="#aaa"
+              value={title}
+              onChangeText={setTitle}
+            />
+            <Animated.View
+              style={[
+                styles.button,
+                { transform: [{ scale: buttonScale }] },
+                loading && { opacity: 0.6 },
+              ]}
+            >
+              <TouchableOpacity
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+                style={styles.buttonContent}
+                onPress={handleSave}
+                disabled={loading}
+              >
+                <Ionicons name={editingId ? 'refresh-circle' : 'add-circle'} size={22} color="#fff" />
+                <Text style={styles.buttonText}>
+                  {editingId ? 'Atualizar Curso' : 'Adicionar Curso'}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
-                <Ionicons name="trash-outline" size={22} color="red" />
-              </TouchableOpacity>
-            </View>
+            </Animated.View>
           </View>
-        )}
-      />
+          {loading && <ActivityIndicator size="large" color="#fff" style={styles.loading} />}
+          <View style={styles.listContainer}>
+            <FlatList
+              data={courses}
+              keyExtractor={(item) => item.id.toString()}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <View style={styles.courseCard}>
+                  <Text style={styles.courseTitle}>{item.title}</Text>
+                  <View style={styles.courseActions}>
+                    <TouchableOpacity onPress={() => { setTitle(item.title); setEditingId(item.id); }}>
+                      <Ionicons name="create-outline" size={22} color="#007AFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
+                      <Ionicons name="trash-outline" size={22} color="red" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
@@ -177,9 +194,11 @@ export default function CoursesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
+  },
+  scrollContent: {
     alignItems: 'center',
+    padding: 24,
+    paddingBottom: 80,
   },
   title: {
     fontSize: 28,
@@ -188,14 +207,14 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
-  addCourseContainer: {
+  formCard: {
     backgroundColor: '#fff',
     padding: 25,
     borderRadius: 15,
-    borderWidth: 2,
-    borderColor: '#005BB5',
-    marginBottom: 20,
-    width: '160%',
+    borderWidth: 1.5,
+    borderColor: '#007AFF',
+    marginBottom: 30,
+    width: '100%',
     maxWidth: 600,
     justifyContent: 'center',
     alignItems: 'center',
@@ -203,26 +222,32 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 5,
+    shadowRadius: 6,
+  },
+  label: {
+    fontSize: 16,
+    color: '#444',
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
   input: {
     height: 55,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0f0f0',
     borderRadius: 10,
     paddingHorizontal: 15,
-    fontSize: 18,
-    marginBottom: 12,
+    fontSize: 17,
+    marginBottom: 16,
     color: '#333',
     width: '100%',
   },
   button: {
     backgroundColor: '#005BB5',
-    padding: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 25,
     borderRadius: 10,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 20,
     width: '100%',
   },
   buttonContent: {
@@ -233,30 +258,37 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginLeft: 10,
   },
-  courseItem: {
+  loading: {
+    marginVertical: 20,
+  },
+  listContainer: {
+    width: '100%',
+    maxWidth: 600,
+  },
+  courseCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 18,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  courseText: {
-    fontSize: 16,
+  courseTitle: {
+    fontSize: 17,
     color: '#333',
     flex: 1,
-    marginRight: 10,
+    marginRight: 15,
   },
-  actions: {
+  courseActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
