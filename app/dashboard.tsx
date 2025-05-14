@@ -35,7 +35,9 @@ interface UserProfile {
 
 const API_URL = Constants.expoConfig?.extra?.API_URL;
 if (!API_URL) {
-  throw new Error('A API_URL deve ser configurada no seu Expo (em app.json ou app.config.js)');
+  throw new Error(
+    'A API_URL deve ser configurada no seu Expo (em app.json ou app.config.js)',
+  );
 }
 
 type Course = {
@@ -44,7 +46,7 @@ type Course = {
 };
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'courses' | 'chat' | 'profile' | 'studyGroups';
+  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups';
   label: string;
   icon:
     | 'people-outline'
@@ -59,7 +61,6 @@ const navItems: NavItem[] = [
   { id: 'groups', label: 'Grupos', icon: 'people-outline' },
   { id: 'connections', label: 'Conexões', icon: 'person-add-outline' },
   { id: 'events', label: 'Eventos', icon: 'calendar-outline' },
-  { id: 'courses', label: 'Cursos', icon: 'book-outline' },
   { id: 'chat', label: 'Torpedo', icon: 'chatbubble-outline' },
   { id: 'studyGroups', label: 'Grupos de Estudo', icon: 'book-outline' },
   { id: 'profile', label: 'Perfil', icon: 'person-outline' },
@@ -71,18 +72,16 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<Group[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-const [events, setEvents] = useState<Event[]>([]);
-const [courses, setCourses] = useState<Course[]>([]);
-const [courseTitle, setCourseTitle] = useState('');
-const [editingId, setEditingId] = useState<number | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [courseTitle, setCourseTitle] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-const [activeSection, setActiveSection] = useState<
-  'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
->('groups');
+  const [activeSection, setActiveSection] = useState<
+    'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
+  >('groups');
 
-const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-const sidebarWidth = useRef(new Animated.Value(65)).current;
-
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sidebarWidth = useRef(new Animated.Value(65)).current;
 
   const textOpacity = sidebarWidth.interpolate({
     inputRange: [65, 160],
@@ -128,21 +127,6 @@ const sidebarWidth = useRef(new Animated.Value(65)).current;
     } catch (error) {
       console.error('Erro ao buscar conexões:', error);
       setConnections([]);
-    }
-  };
-
-  const fetchEvents = async (token: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/eventos`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setEvents(response.ok ? await response.json() : []);
-    } catch (error) {
-      console.error('Erro ao buscar eventos:', error);
-      setEvents([]);
     }
   };
 
@@ -222,37 +206,22 @@ const sidebarWidth = useRef(new Animated.Value(65)).current;
     }
   };
 
-useEffect(() => {
-  async function loadProfile() {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return router.replace('/');
-    await fetchProfile(token);
-
-    await Promise.all([
-      fetchGroups(token),
-      fetchConnections(token, profile?.id || ''),
-      fetchEvents(token),
-      fetchCourses(token),
-    ]);
-
-    setLoading(false);
-  }
-  loadProfile();
-}, []);
-
   useEffect(() => {
-    async function loadData() {
+    async function loadProfile() {
       const token = await AsyncStorage.getItem('token');
-      if (token && profile?.id) {
-        await Promise.all([
-          fetchGroups(token),
-          fetchConnections(token, profile.id),
-          fetchEvents(token),
-        ]);
-      }
+      if (!token) return router.replace('/');
+      await fetchProfile(token);
+
+      await Promise.all([
+        fetchGroups(token),
+        fetchConnections(token, profile?.id || ''),
+        fetchCourses(token),
+      ]);
+
+      setLoading(false);
     }
-    loadData();
-  }, [profile?.id]);
+    loadProfile();
+  }, []);
 
   if (loading) {
     return (
@@ -285,7 +254,11 @@ useEffect(() => {
             }
           }}
         >
-          <Ionicons name={item.icon} size={24} color={isActive ? '#005BB5' : '#fff'} />
+          <Ionicons
+            name={item.icon}
+            size={24}
+            color={isActive ? '#005BB5' : '#fff'}
+          />
           {isSidebarOpen && (
             <Animated.Text
               style={[
@@ -375,13 +348,13 @@ useEffect(() => {
       case 'connections':
         return <ConnectionsSection onRefresh={handleRefresh} />;
       case 'events':
-        return <EventsSection events={events} />;
-      case 'courses':
-        return <CoursesSection />;
+        return <EventsSection />;
       case 'chat':
         return <ChatSection />;
       case 'studyGroups':
         router.push('/study-groups');
+        return null;
+      case 'profile':
         return null;
       default:
         return null;
@@ -393,7 +366,10 @@ useEffect(() => {
       <LinearGradient colors={['#005BB5', '#007AFF']} style={styles.container}>
         <View style={styles.dashboardContainer}>
           <Animated.View style={[styles.sidebar, { width: sidebarWidth }]}>
-            <TouchableOpacity onPress={toggleSidebar} style={styles.toggleButton}>
+            <TouchableOpacity
+              onPress={toggleSidebar}
+              style={styles.toggleButton}
+            >
               <Ionicons
                 name={isSidebarOpen ? 'chevron-back' : 'chevron-forward'}
                 size={24}
