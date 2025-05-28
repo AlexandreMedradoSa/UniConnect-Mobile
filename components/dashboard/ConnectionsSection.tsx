@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Text,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
@@ -100,26 +101,20 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
   const fetchFilteredConnections = async () => {
     try {
       if (!cursoFilter && !interessesFilter) {
-        setError('Por favor, preencha pelo menos um filtro antes de buscar.');
+        Alert.alert(
+          'Atenção',
+          'Por favor, preencha pelo menos um filtro antes de buscar.',
+        );
         return;
       }
 
-      console.log('Iniciando busca de conexões filtradas...');
-      console.log('Filtros:', {
-        curso: cursoFilter,
-        interesses: interessesFilter,
-      });
+      setLoading(true);
+      setError(null);
 
       const token = await AsyncStorage.getItem('token');
       const userId = await AsyncStorage.getItem('userId');
 
-      console.log('Token encontrado:', token ? 'Sim' : 'Não');
-      console.log('UserId encontrado:', userId ? 'Sim' : 'Não');
-
       if (!token || !userId) {
-        console.error(
-          'Token ou userId não encontrado em fetchFilteredConnections',
-        );
         throw new Error('Token ou userId não encontrado');
       }
 
@@ -127,34 +122,34 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
       if (cursoFilter) params.append('curso', cursoFilter);
       if (interessesFilter) params.append('interesses', interessesFilter);
 
-      const url = `${API_URL}/api/users/search?${params.toString()}`;
-      console.log('URL da requisição:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_URL}/api/users/search?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
-
-      console.log('Status da resposta:', response.status);
+      );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro na resposta:', response.status, errorText);
-        throw new Error(
-          `Erro ao buscar conexões filtradas: ${response.status}`,
-        );
+        throw new Error('Erro ao buscar conexões filtradas');
       }
 
       const data = await response.json();
-      console.log('Dados recebidos:', data);
-
       setFilteredResults(data);
-      setError(null);
+
+      if (data.length === 0) {
+        Alert.alert(
+          'Nenhum resultado',
+          'Não encontramos usuários com esses critérios de filtro',
+        );
+      }
     } catch (error) {
-      console.error('Erro detalhado ao buscar conexões filtradas:', error);
-      setError('Erro ao buscar conexões filtradas');
+      console.error('Erro ao buscar conexões filtradas:', error);
+      setError('Erro ao buscar conexões filtradas. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -265,60 +260,49 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      Alert.alert('Atenção', 'Digite um nome para buscar');
+      Alert.alert('Atenção', 'Por favor, digite algo para buscar');
       return;
     }
 
+    setIsSearching(true);
+    setError(null);
+
     try {
-      setIsSearching(true);
-      setError(null);
-
-      console.log('Iniciando busca por:', searchQuery);
-
       const token = await AsyncStorage.getItem('token');
       const userId = await AsyncStorage.getItem('userId');
-
-      console.log('Token encontrado:', token ? 'Sim' : 'Não');
-      console.log('UserId encontrado:', userId ? 'Sim' : 'Não');
 
       if (!token || !userId) {
         throw new Error('Token ou userId não encontrado');
       }
 
-      const url = `${API_URL}/api/users/search?nome=${encodeURIComponent(
-        searchQuery,
-      )}`;
-      console.log('URL da busca:', url);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_URL}/api/users/search?nome=${encodeURIComponent(searchQuery)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
-
-      console.log('Status da resposta:', response.status);
+      );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro na resposta:', response.status, errorText);
-        throw new Error(
-          `Erro ao buscar usuários: ${response.status} - ${errorText}`,
-        );
+        throw new Error('Erro ao buscar usuários');
       }
 
       const data = await response.json();
-      console.log('Dados recebidos:', data);
-
       setSearchResults(data);
 
       if (data.length === 0) {
-        Alert.alert('Resultado', 'Nenhum usuário encontrado');
+        setSearchResults([]);
+        Alert.alert(
+          'Nenhum resultado',
+          'Não encontramos usuários com esses critérios de busca',
+        );
       }
     } catch (error) {
-      console.error('Erro detalhado na busca:', error);
-      setError('Erro ao buscar usuários. Por favor, tente novamente.');
+      console.error('Erro na busca:', error);
+      setError('Erro ao buscar usuários. Tente novamente.');
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -326,22 +310,22 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await AsyncStorage.getItem('token');
       const myUserId = await AsyncStorage.getItem('userId');
 
-      if (!myUserId) {
-        console.error('UserId não encontrado');
-        return;
+      if (!token || !myUserId) {
+        throw new Error('Token ou userId não encontrado');
       }
 
       const response = await fetch(
-        `${API_URL}/api/users/${myUserId}/conexoes/${requestId}/aceitar`,
+        `${API_URL}/api/users/${myUserId}/conexoes/aceitar`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ requestId }),
         },
       );
 
@@ -349,46 +333,44 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
         throw new Error('Erro ao aceitar solicitação');
       }
 
-      const acceptedRequest = await response.json();
-      const newConnection: Connection = {
-        id: acceptedRequest.id,
-        conexaoId: acceptedRequest.requestId,
-        name: acceptedRequest.name,
-        curso: acceptedRequest.curso,
-        semestre: acceptedRequest.semestre,
-        interesses: acceptedRequest.interesses || [],
-      };
-
-      setConnections((prev) => [...prev, newConnection]);
-      setPendingRequests((prev) =>
-        prev.filter((request) => request.id !== requestId),
-      );
-      Alert.alert('Sucesso', 'Solicitação aceita com sucesso');
-      await fetchConnections();
+      Alert.alert('Sucesso', 'Solicitação aceita com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setPendingRequests((prev) =>
+              prev.filter((request) => request.id !== requestId),
+            );
+            fetchConnections();
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao aceitar solicitação:', error);
-      setError('Erro ao aceitar solicitação');
+      Alert.alert(
+        'Erro',
+        'Não foi possível aceitar a solicitação. Tente novamente.',
+      );
     }
   };
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      const userId = await AsyncStorage.getItem('userId');
+      const token = await AsyncStorage.getItem('token');
+      const myUserId = await AsyncStorage.getItem('userId');
 
-      if (!userId) {
-        console.error('UserId não encontrado');
-        return;
+      if (!token || !myUserId) {
+        throw new Error('Token ou userId não encontrado');
       }
 
       const response = await fetch(
-        `${API_URL}/api/users/${userId}/conexoes/${requestId}/recusar`,
+        `${API_URL}/api/users/${myUserId}/conexoes/recusar`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ requestId }),
         },
       );
 
@@ -396,14 +378,22 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
         throw new Error('Erro ao recusar solicitação');
       }
 
-      setPendingRequests((prev) =>
-        prev.filter((request) => request.id !== requestId),
-      );
-      Alert.alert('Sucesso', 'Solicitação recusada com sucesso');
-      await fetchConnections();
+      Alert.alert('Sucesso', 'Solicitação recusada com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setPendingRequests((prev) =>
+              prev.filter((request) => request.id !== requestId),
+            );
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao recusar solicitação:', error);
-      setError('Erro ao recusar solicitação');
+      Alert.alert(
+        'Erro',
+        'Não foi possível recusar a solicitação. Tente novamente.',
+      );
     }
   };
 
@@ -445,75 +435,108 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
   };
 
   const handleUndoConnection = async (connectionId: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const userId = await AsyncStorage.getItem('userId');
+    Alert.alert('Confirmar', 'Tem certeza que deseja desfazer esta conexão?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Desfazer',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('token');
+            const userId = await AsyncStorage.getItem('userId');
 
-      if (!userId) {
-        console.error('UserId não encontrado');
-        return;
-      }
+            if (!token || !userId) {
+              throw new Error('Token ou userId não encontrado');
+            }
 
-      const response = await fetch(
-        `${API_URL}/api/users/${userId}/conexoes/${connectionId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+            const response = await fetch(
+              `${API_URL}/api/users/${userId}/conexoes/desfazer`,
+              {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ connectionId }),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error('Erro ao desfazer conexão');
+            }
+
+            Alert.alert('Sucesso', 'Conexão desfeita com sucesso!');
+            fetchConnections();
+          } catch (error) {
+            console.error('Erro ao desfazer conexão:', error);
+            Alert.alert(
+              'Erro',
+              'Não foi possível desfazer a conexão. Tente novamente.',
+            );
+          }
         },
-      );
-
-      if (!response.ok) {
-        throw new Error('Erro ao desfazer conexão');
-      }
-
-      setConnections((prev) =>
-        prev.filter((connection) => connection.id !== connectionId),
-      );
-      Alert.alert('Sucesso', 'Conexão desfeita com sucesso');
-      await fetchConnections();
-    } catch (error) {
-      console.error('Erro ao desfazer conexão:', error);
-      setError('Erro ao desfazer conexão');
-    }
+      },
+    ]);
   };
 
-  const handleSendRequest = async (targetUserId: string) => {
+  const handleSendRequest = async (userId: string) => {
     try {
       const token = await AsyncStorage.getItem('token');
       const myUserId = await AsyncStorage.getItem('userId');
 
-      if (!myUserId) {
-        console.error('UserId não encontrado');
-        return;
+      if (!token || !myUserId) {
+        throw new Error('Token ou userId não encontrado');
       }
 
-      const response = await fetch(
-        `${API_URL}/api/users/${myUserId}/conexoes`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ targetUserId }),
+      const response = await fetch(`${API_URL}/api/users/${userId}/conexoes`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      );
+      });
 
       if (!response.ok) {
-        throw new Error('Erro ao enviar solicitação de conexão');
+        throw new Error('Erro ao enviar solicitação');
       }
 
-      Alert.alert('Sucesso', 'Solicitação de conexão enviada');
-      setSearchResults((prevResults) =>
-        prevResults.filter((user) => user.id !== targetUserId),
-      );
-      await fetchConnections();
+      Alert.alert('Sucesso', 'Solicitação de conexão enviada com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setSearchResults((prev) =>
+              prev.filter((user) => user.id !== userId),
+            );
+            fetchSentRequests();
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao enviar solicitação:', error);
-      setError('Erro ao enviar solicitação de conexão');
+      Alert.alert(
+        'Erro',
+        'Não foi possível enviar a solicitação. Tente novamente.',
+      );
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchConnections(),
+        fetchPendingRequests(),
+        fetchSentRequests(),
+        fetchSuggestions(),
+      ]);
+    } catch (error) {
+      console.error('Erro ao atualizar dados:', error);
+      setError('Erro ao atualizar dados. Tente novamente.');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -585,19 +608,21 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
 
   const renderSearchSection = () => {
     return (
-      <View style={styles.searchSection}>
-        <Text style={styles.sectionTitle}>Buscar Usuários</Text>
-        <Text style={styles.searchDescription}>
-          Digite o nome do usuário que você deseja conectar
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="search" size={24} color="#007AFF" />
+          <Text style={styles.sectionTitle}>Buscar Conexões</Text>
+        </View>
+        <Text style={styles.sectionDescription}>
+          Encontre outros estudantes para conectar e expandir sua rede acadêmica
         </Text>
-
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Digite o nome do usuário"
+            placeholder="Buscar por nome, curso ou interesses"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
+            placeholderTextColor="#666"
           />
           <TouchableOpacity
             style={[
@@ -612,39 +637,6 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {searchResults.length > 0 && (
-          <View style={styles.searchResults}>
-            <Text style={styles.subsectionTitle}>Resultados da Busca</Text>
-            {searchResults.map((user) => (
-              <View key={user.id} style={styles.itemCard}>
-                <View style={styles.userInfo}>
-                  <Text style={styles.itemTitle}>{user.name}</Text>
-                  <Text style={styles.itemDescription}>
-                    {user.curso
-                      ? `${user.curso} - ${user.semestre}º semestre`
-                      : 'Perfil em andamento'}
-                  </Text>
-                  {user.interesses && user.interesses.length > 0 && (
-                    <View style={styles.interestsContainer}>
-                      {user.interesses.map((interest, index) => (
-                        <Text key={index} style={styles.interestTag}>
-                          {interest}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={styles.connectButton}
-                  onPress={() => handleSendRequest(user.id)}
-                >
-                  <Text style={styles.buttonText}>Conectar</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
       </View>
     );
   };
@@ -652,7 +644,10 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
   const renderFilterSection = () => {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Filtrar Conexões</Text>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="filter" size={24} color="#007AFF" />
+          <Text style={styles.sectionTitle}>Filtrar Conexões</Text>
+        </View>
         <View style={styles.filterContainer}>
           <TextInput
             style={styles.filterInput}
@@ -870,11 +865,50 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
             </View>
           ))
         ) : (
-          <Text style={styles.emptyText}>Você ainda não tem conexões</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={48} color="#8E8E93" />
+            <Text style={styles.emptyText}>Você ainda não tem conexões</Text>
+            <Text style={styles.emptySubtext}>
+              Busque por outros usuários para começar a fazer conexões
+            </Text>
+          </View>
         )}
       </View>
     );
   };
+
+  const renderLoadingState = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#4A90E2" />
+      <Text style={styles.loadingText}>Carregando conexões...</Text>
+    </View>
+  );
+
+  const renderErrorState = () => (
+    <View style={styles.errorContainer}>
+      <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
+      <Text style={styles.errorText}>{error}</Text>
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={() => {
+          setError(null);
+          fetchConnections();
+        }}
+      >
+        <Text style={styles.retryButtonText}>Tentar novamente</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="people-outline" size={48} color="#8E8E93" />
+      <Text style={styles.emptyText}>Nenhuma conexão encontrada</Text>
+      <Text style={styles.emptySubtext}>
+        Busque por outros usuários para começar a fazer conexões
+      </Text>
+    </View>
+  );
 
   if (!loading && error?.includes('faça login')) {
     return (
@@ -890,16 +924,98 @@ export function ConnectionsSection({ onRefresh }: ConnectionsSectionProps) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#4A90E2']}
+          tintColor="#4A90E2"
+        />
+      }
+    >
       {renderSearchSection()}
+
+      {searchResults.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resultados da Busca</Text>
+          {searchResults.map((user) => (
+            <View key={user.id} style={styles.itemCard}>
+              <View style={styles.userInfo}>
+                <Text style={styles.itemTitle}>{user.name}</Text>
+                <Text style={styles.itemDescription}>
+                  {user.curso
+                    ? `${user.curso} - ${user.semestre}º semestre`
+                    : 'Perfil em andamento'}
+                </Text>
+                {user.interesses && user.interesses.length > 0 && (
+                  <View style={styles.interestsContainer}>
+                    {user.interesses.map((interest, index) => (
+                      <Text key={index} style={styles.interestTag}>
+                        {interest}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => handleSendRequest(user.id)}
+              >
+                <Text style={styles.buttonText}>Conectar</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       {renderFilterSection()}
-      {renderFilteredResults()}
-      {renderSuggestions()}
-      {renderPendingRequests()}
-      {renderSentRequests()}
-      {renderConnections()}
+
+      {filteredResults.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resultados Filtrados</Text>
+          {filteredResults.map((user) => (
+            <View key={user.id} style={styles.itemCard}>
+              <View style={styles.userInfo}>
+                <Text style={styles.itemTitle}>{user.name}</Text>
+                <Text style={styles.itemDescription}>
+                  {user.curso
+                    ? `${user.curso} - ${user.semestre}º semestre`
+                    : 'Perfil em andamento'}
+                </Text>
+                {user.interesses && user.interesses.length > 0 && (
+                  <View style={styles.interestsContainer}>
+                    {user.interesses.map((interest, index) => (
+                      <Text key={index} style={styles.interestTag}>
+                        {interest}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => handleSendRequest(user.id)}
+              >
+                <Text style={styles.buttonText}>Conectar</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {loading ? (
+        renderLoadingState()
+      ) : error ? (
+        renderErrorState()
+      ) : (
+        <>
+          {renderPendingRequests()}
+          {renderSentRequests()}
+          {renderConnections()}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -913,57 +1029,82 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
     marginTop: 10,
-    color: '#007AFF',
+    fontSize: 16,
+    color: '#8E8E93',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   errorText: {
-    color: '#dc3545',
+    marginTop: 10,
+    fontSize: 16,
+    color: '#FF3B30',
     textAlign: 'center',
-    marginVertical: 10,
-    paddingHorizontal: 8,
+  },
+  retryButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    marginTop: 5,
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 16,
-    padding: 10,
+    padding: 16,
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#333',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
-    textAlign: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: '#333',
     fontWeight: '600',
   },
   sectionDescription: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 12,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  searchSection: {
     marginBottom: 16,
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  searchDescription: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 10,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -1006,32 +1147,32 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     flex: 1,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   interestsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 6,
-    gap: 6,
+    marginTop: 8,
+    gap: 8,
   },
   interestTag: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-    color: '#666',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500',
   },
   connectButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    minWidth: 80,
+    minWidth: 100,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
     alignSelf: 'stretch',
-    maxWidth: '100%',
   },
   filterContainer: {
     marginBottom: 12,
@@ -1062,35 +1203,37 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 2.5,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 10,
+    gap: 12,
+    marginTop: 12,
   },
   acceptButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    minWidth: 80,
+    minWidth: 100,
     alignItems: 'center',
   },
   rejectButton: {
     backgroundColor: '#F44336',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    minWidth: 80,
+    minWidth: 100,
     alignItems: 'center',
   },
   cancelButton: {
@@ -1103,18 +1246,11 @@ const styles = StyleSheet.create({
   },
   undoButton: {
     backgroundColor: '#F44336',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    minWidth: 80,
+    minWidth: 100,
     alignItems: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 16,
-    fontSize: 16,
   },
   interestText: {
     fontSize: 14,
@@ -1140,5 +1276,12 @@ const styles = StyleSheet.create({
   },
   searchButtonDisabled: {
     opacity: 0.7,
+  },
+  searchDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
