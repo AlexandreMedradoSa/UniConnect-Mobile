@@ -46,7 +46,7 @@ type Course = {
 };
 
 type NavItem = {
-  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups';
+  id: 'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups' | 'courses';
   label: string;
   icon:
     | 'people-outline'
@@ -54,7 +54,8 @@ type NavItem = {
     | 'calendar-outline'
     | 'book-outline'
     | 'person-outline'
-    | 'chatbubble-outline';
+    | 'chatbubble-outline'
+    | 'school-outline';
 };
 
 const navItems: NavItem[] = [
@@ -77,7 +78,7 @@ export default function DashboardScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const [activeSection, setActiveSection] = useState<
-    'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups'
+    'groups' | 'connections' | 'events' | 'chat' | 'profile' | 'studyGroups' | 'courses'
   >('groups');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -223,6 +224,27 @@ export default function DashboardScreen() {
     loadProfile();
   }, []);
 
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('token');
+        if (storedToken) {
+          const response = await fetch(`${API_URL}/api/admins`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          if (response.ok) {
+            if (!navItems.find(item => item.id === 'courses')) {
+              navItems.push({ id: 'courses', label: 'Cursos', icon: 'school-outline' });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar permissões de admin:', error);
+      }
+    };
+    checkAdmin();
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -353,6 +375,9 @@ export default function DashboardScreen() {
         return <ChatSection />;
       case 'studyGroups':
         router.push('/study-groups');
+        return null;
+      case 'courses':
+        router.push('/course');
         return null;
       case 'profile':
         return null;
